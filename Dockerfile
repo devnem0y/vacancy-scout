@@ -1,26 +1,19 @@
-# Stage 1: сборка (Gradle + Java 26)
-FROM eclipse-temurin:26-jdk AS builder
+FROM eclipse-temurin:17-jdk-alpine AS builder
 WORKDIR /app
 
-# Копируем только то, что нужно для инициализации wrapper
-COPY gradlew .
-COPY gradle/ gradle/
+# Копируем файлы сборки Gradle
+COPY gradle gradle/
+COPY gradlew ./
+COPY settings.gradle.kts build.gradle.kts ./
 
-# Проверяем, что Gradle нужный версии (опционально, можно убрать)
-RUN ./gradlew --version
+# ВАЖНО: даём права на gradlew
+RUN chmod +x gradlew
 
-# Копируем весь проект
-COPY . .
+# Скачиваем зависимости и собираем jar
+RUN ./gradlew clean build -x test
 
-# Собираем bootJar без тестов (для скорости)
-# Если позже захочешь тесты — убери -x test
-RUN ./gradlew clean bootJar --no-daemon -x test
-
-# Stage 2: рантайм (только JRE, без Gradle)
-FROM eclipse-temurin:26-jre
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-EXPOSE 8080
-
 COPY --from=builder /app/build/libs/*.jar app.jar
-
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
