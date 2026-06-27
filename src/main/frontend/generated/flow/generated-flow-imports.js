@@ -1,3 +1,7 @@
+import '@vaadin/vertical-layout/src/vaadin-vertical-layout.js';
+import '@vaadin/button/src/vaadin-button.js';
+import '@vaadin/tooltip/src/vaadin-tooltip.js';
+import 'Frontend/generated/jar-resources/disableOnClickFunctions.js';
 import '@vaadin/common-frontend/ConnectionIndicator.js';
 import 'Frontend/generated/jar-resources/ReactRouterOutletElement.tsx';
 const loadOnDemand = (key) => { return Promise.resolve(0); }
