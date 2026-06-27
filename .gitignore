@@ -205,6 +205,9 @@ README.html
 .env
 docker-compose.override.yml
 
+# Deploy
+deploy-to-server.ps1
+
 # Spring Boot
 application-local.properties
 application-dev.properties
