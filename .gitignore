@@ -1,5 +1,6 @@
 /target/
 !.mvn/wrapper/maven-wrapper.jar
+!gradle/wrapper/gradle-wrapper.jar
 
 ### STS ###
 .apt_generated
@@ -194,7 +195,6 @@ target
 dependency-reduced-pom.xml
 *.sublime-*
 /scratch
-.gradle
 README.html
 *.iml
 .idea
