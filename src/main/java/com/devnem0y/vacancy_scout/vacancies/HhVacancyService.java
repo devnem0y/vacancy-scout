@@ -58,14 +58,25 @@ public class HhVacancyService {
     private String resolveAreaId(String areaName) {
         if (areaName == null || areaName.isBlank()) return null;
 
+        System.out.println("Ищем город: " + areaName);
+
         var searchBuilder = UriComponentsBuilder.fromUriString("https://api.hh.ru/areas").queryParam("text", areaName);
         var areasResponse = restTemplate.getForEntity(searchBuilder.build().toUri(), AreaItem[].class);
 
         AreaItem[] areasArray = areasResponse.getBody();
-        if (areasArray == null || areasArray.length == 0) return null;
+
+        System.out.println("Ответ от HH (кол-во городов): " + (areasArray == null ? 0 : areasArray.length));
+
+        if (areasArray == null || areasArray.length == 0) {
+            System.out.println("Город не найден!");
+            return null;
+        }
 
         List<AreaItem> areas = Arrays.asList(areasArray);
-        return areas.getFirst().id();
+
+        String id = areas.getFirst().id();
+        System.out.println("Найден ID города: " + id + " (" + areas.getFirst().name() + ")");
+        return id;
     }
 
     private List<String> mapSchedules(List<Schedule> schedules) {

@@ -123,6 +123,8 @@ public class DashboardScreen extends VerticalLayout {
                         new VacancyFilter(request.city(), request.schedules(), request.text(), request.period())
                 );
 
+                System.out.println("Получено сырых вакансий: " + rawList.size());
+
                 String preferredCity = request.city() != null ? request.city() : "";
                 VacancySearchResponse resp = groupingService.groupByCityAndSchedule(rawList, preferredCity);
 
