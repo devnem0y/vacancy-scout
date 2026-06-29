@@ -10,6 +10,8 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -18,6 +20,8 @@ import java.util.concurrent.CompletableFuture;
 
 @Route("dashboard")
 public class DashboardScreen extends VerticalLayout {
+
+    private static final Logger log = LoggerFactory.getLogger(DashboardScreen.class);
 
     private final UserPreferencesService userPreferencesService;
     private final HhVacancyService hhVacancyService;
@@ -103,31 +107,39 @@ public class DashboardScreen extends VerticalLayout {
                 30
         );
 
+        UI.getCurrent().access(() -> Notification.show("Начинаю поиск..."));
+
         CompletableFuture.runAsync(() -> {
             try {
+                // --- БЛОК 1: Проверка сессии ---
                 var attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-                if (attrs == null) return;
+                if (attrs == null) throw new IllegalStateException("Нет контекста запроса (ServletRequestAttributes is null)");
+
                 var session = attrs.getRequest().getSession(false);
-                if (session == null) {
-                    UI.getCurrent().access(() -> Notification.show("Сессия истекла"));
-                    return;
-                }
+                if (session == null) throw new IllegalStateException("Сессия не найдена");
+
                 String accessToken = (String) session.getAttribute("hh_access_token");
-                if (accessToken == null || accessToken.isBlank()) {
-                    UI.getCurrent().access(() -> Notification.show("Требуется повторная авторизация"));
-                    return;
-                }
+                if (accessToken == null || accessToken.isBlank()) throw new IllegalStateException("Токен HH отсутствует в сессии");
+
+                log.info("Токен получен, начинаем запрос к HH..."); // Если видишь это в логах - сессия ок
+
+                // --- БЛОК 2: Запрос к сервису ---
+                String cityToSearch = request.city() != null ? request.city().trim() : "";
 
                 List<VacancyDto> rawList = hhVacancyService.fetchFromHh(
                         accessToken,
-                        new VacancyFilter(request.city(), request.schedules(), request.text(), request.period())
+                        new VacancyFilter(cityToSearch, request.schedules(), request.text(), request.period())
                 );
 
-                System.out.println("Получено сырых вакансий: " + rawList.size());
+                log.info("Получено сырых вакансий от HH: {}", rawList.size());
 
-                String preferredCity = request.city() != null ? request.city() : "";
-                VacancySearchResponse resp = groupingService.groupByCityAndSchedule(rawList, preferredCity);
+                VacancyGroupingService groupingService = new VacancyGroupingService(); // Можно создать тут, так как у него нет зависимостей
+                VacancySearchResponse resp = groupingService.groupByCityAndSchedule(rawList, cityToSearch);
 
+                log.info("Группировано: Офис={}, Удал.свой={}, Удал.др={}",
+                        resp.myCityOffice().size(), resp.myCityRemote().size(), resp.otherCitiesRemote().size());
+
+                // --- БЛОК 3: Обновление UI ---
                 UI.getCurrent().access(() -> {
                     officeTable.setItems(resp.myCityOffice());
                     remoteMyCityTable.setItems(resp.myCityRemote());
@@ -135,14 +147,15 @@ public class DashboardScreen extends VerticalLayout {
 
                     long total = resp.myCityOffice().size() + resp.myCityRemote().size() + resp.otherCitiesRemote().size();
                     if (total == 0) {
-                        Notification.show("По запросу ничего не найдено");
+                        Notification.show("По запросу ничего не найдено. Проверьте название города или ключевые слова.");
+                    } else {
+                        Notification.show("Готово! Найдено вакансий: " + total);
                     }
                 });
 
             } catch (Exception e) {
-                e.printStackTrace();
-                UI.getCurrent().access(() ->
-                        Notification.show("Ошибка поиска: " + e.getMessage())
+                log.error("Критическая ошибка в performSearch", e);
+                UI.getCurrent().access(() -> Notification.show("Ошибка поиска: " + e.getMessage())
                 );
             }
         });
