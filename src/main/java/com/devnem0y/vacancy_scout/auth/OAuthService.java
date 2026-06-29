@@ -1,5 +1,8 @@
 package com.devnem0y.vacancy_scout.auth;
 
+import com.devnem0y.vacancy_scout.vacancies.HhVacancyService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Value;
 
@@ -11,6 +14,8 @@ import java.security.NoSuchAlgorithmException;
 
 @Service
 public class OAuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(OAuthService.class);
 
     private final String clientId;
     private final String redirectUri;
@@ -47,7 +52,7 @@ public class OAuthService {
     }
 
     public String getAuthorizationUrl(String state, String codeChallenge) {
-        return String.format(
+        var url = String.format(
                 "https://hh.ru/oauth/authorize?" +
                         "response_type=code&" +
                         "client_id=%s&" +
@@ -58,5 +63,7 @@ public class OAuthService {
                         "code_challenge_method=S256",
                 clientId, redirectUri, state, codeChallenge
         );
+        log.info("[OAuthService] Generated auth URL: {}", url);
+        return url;
     }
 }
