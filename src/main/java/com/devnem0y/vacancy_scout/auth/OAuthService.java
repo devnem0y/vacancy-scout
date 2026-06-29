@@ -52,6 +52,7 @@ public class OAuthService {
                         "response_type=code&" +
                         "client_id=%s&" +
                         "redirect_uri=%s&" +
+                        "scope=vacancies&" +
                         "state=%s&" +
                         "code_challenge=%s&" +
                         "code_challenge_method=S256",
