@@ -100,61 +100,87 @@ public class DashboardScreen extends VerticalLayout {
     }
 
     private void performSearch() {
+        String city = cityField.getValue();
+        String keywords = keywordsField.getValue();
+
         var request = new VacancySearchRequest(
-                cityField.getValue(),
+                city,
                 List.of(Schedule.OFFICE, Schedule.REMOTE),
-                keywordsField.getValue(),
+                keywords,
                 30
         );
 
-        UI.getCurrent().access(() -> Notification.show("Начинаю поиск..."));
+        UI.getCurrent().access(() -> Notification.show("Начинаю поиск вакансий..."));
+
+        String accessToken;
+        try {
+            var attrs = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
+            var session = attrs.getRequest().getSession(false);
+            if (session == null) {
+                throw new IllegalStateException("Сессия не найдена — возможно, истекла");
+            }
+            accessToken = (String) session.getAttribute("hh_access_token");
+            if (accessToken == null || accessToken.isBlank()) {
+                throw new IllegalStateException("Токен HH отсутствует в сессии. Авторизуйтесь заново.");
+            }
+        } catch (Exception e) {
+            log.error("Ошибка получения контекста запроса или токена: {}", e.getMessage(), e);
+            UI.getCurrent().access(() ->
+                    Notification.show("Ошибка: " + e.getMessage())
+            );
+            return;
+        }
+
+        String cityToSearch = (city != null) ? city.trim() : "";
+        log.info("[performSearch] Контекст получен. Город: '{}', токен: {}",
+                cityToSearch,
+                (accessToken.length() > 10 ? "***" + accessToken.substring(accessToken.length() - 8) : "скрыт"));
 
         CompletableFuture.runAsync(() -> {
             try {
-                // --- БЛОК 1: Проверка сессии ---
-                var attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-                if (attrs == null) throw new IllegalStateException("Нет контекста запроса (ServletRequestAttributes is null)");
+                log.info("[performSearch-async] Начинаем запрос к HH API...");
 
-                var session = attrs.getRequest().getSession(false);
-                if (session == null) throw new IllegalStateException("Сессия не найдена");
-
-                String accessToken = (String) session.getAttribute("hh_access_token");
-                if (accessToken == null || accessToken.isBlank()) throw new IllegalStateException("Токен HH отсутствует в сессии");
-
-                log.info("Токен получен, начинаем запрос к HH..."); // Если видишь это в логах - сессия ок
-
-                // --- БЛОК 2: Запрос к сервису ---
-                String cityToSearch = request.city() != null ? request.city().trim() : "";
-
-                List<VacancyDto> rawList = hhVacancyService.fetchFromHh(
-                        accessToken,
-                        new VacancyFilter(cityToSearch, request.schedules(), request.text(), request.period())
+                VacancyFilter filter = new VacancyFilter(
+                        cityToSearch,
+                        request.schedules(),
+                        request.text(),
+                        request.period()
                 );
 
-                log.info("Получено сырых вакансий от HH: {}", rawList.size());
+                List<VacancyDto> rawList = hhVacancyService.fetchFromHh(accessToken, filter);
 
-                VacancyGroupingService groupingService = new VacancyGroupingService(); // Можно создать тут, так как у него нет зависимостей
+                log.info("[performSearch-async] Получено сырых вакансий: {}", rawList.size());
+
+                VacancyGroupingService groupingService = new VacancyGroupingService();
                 VacancySearchResponse resp = groupingService.groupByCityAndSchedule(rawList, cityToSearch);
 
-                log.info("Группировано: Офис={}, Удал.свой={}, Удал.др={}", resp.myCityOffice().size(), resp.myCityRemote().size(), resp.otherCitiesRemote().size());
+                int officeCount = resp.myCityOffice().size();
+                int remoteMyCityCount = resp.myCityRemote().size();
+                int remoteOtherCityCount = resp.otherCitiesRemote().size();
 
-                // --- БЛОК 3: Обновление UI ---
+                log.info("[performSearch-async] Сгруппировано: Офис={}, Удал.свой={}, Удал.др={}",
+                        officeCount, remoteMyCityCount, remoteOtherCityCount);
+
                 UI.getCurrent().access(() -> {
                     officeTable.setItems(resp.myCityOffice());
                     remoteMyCityTable.setItems(resp.myCityRemote());
                     remoteOtherCityTable.setItems(resp.otherCitiesRemote());
 
-                    long total = resp.myCityOffice().size() + resp.myCityRemote().size() + resp.otherCitiesRemote().size();
+                    long total = officeCount + remoteMyCityCount + remoteOtherCityCount;
                     if (total == 0) {
-                        Notification.show("По запросу ничего не найдено. Проверьте название города или ключевые слова.");
+                        Notification.show(
+                                "По запросу ничего не найдено. Проверьте название города или ключевые слова.");
                     } else {
                         Notification.show("Готово! Найдено вакансий: " + total);
                     }
                 });
 
             } catch (Exception e) {
-                log.error("Критическая ошибка в performSearch", e);
-                UI.getCurrent().access(() -> Notification.show("Ошибка поиска: " + e.getMessage()));
+                log.error("[performSearch-async] Критическая ошибка при выполнении поиска: {}", e.getMessage(), e);
+
+                UI.getCurrent().access(() ->
+                        Notification.show("Ошибка поиска: " + (e.getMessage() != null ? e.getMessage() : "Неизвестная ошибка"))
+                );
             }
         });
     }
