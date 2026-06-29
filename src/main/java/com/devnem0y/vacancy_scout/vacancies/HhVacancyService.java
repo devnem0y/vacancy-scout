@@ -21,10 +21,9 @@ public class HhVacancyService {
     }
 
     public List<VacancyDto> fetchFromHh(String accessToken, VacancyFilter filter) {
-        // Сначала ищем areaId по названию города (HH требует ID, а не название)
         String areaId = resolveAreaId(filter.areaName());
         if (areaId == null && filter.areaName() != null && !filter.areaName().isBlank()) {
-            // Если город не найден — возвращаем пустой список, чтобы не показывать «всё подряд»
+
             return List.of();
         }
 
@@ -59,7 +58,6 @@ public class HhVacancyService {
     private String resolveAreaId(String areaName) {
         if (areaName == null || areaName.isBlank()) return null;
 
-        // Ищем город: HH API возвращает список областей/городов
         var searchBuilder = UriComponentsBuilder.fromUriString("https://api.hh.ru/areas").queryParam("text", areaName);
         var areasResponse = restTemplate.getForEntity(searchBuilder.build().toUri(), AreaItem[].class);
 
@@ -93,12 +91,11 @@ public class HhVacancyService {
     private Schedule mapScheduleId(String id) {
         if ("remote".equals(id)) return Schedule.REMOTE;
         if ("office".equals(id) || "hybrid".equals(id)) return Schedule.OFFICE;
-        return Schedule.OFFICE; // дефолт
+        return Schedule.OFFICE;
     }
 
     private LocalDateTime parsePublishedAt(String isoString) {
         if (isoString == null) return LocalDateTime.now();
-        // HH возвращает ISO 8601 с Z или без — парсим универсально
         try {
             return LocalDateTime.parse(isoString);
         } catch (Exception e) {
@@ -106,7 +103,6 @@ public class HhVacancyService {
         }
     }
 
-    // Внутренние DTO для маппинга ответа HH API
     public record VacanciesResponse(List<VacancyItem> items) {}
 
     public record VacancyItem(

@@ -16,10 +16,14 @@ public class VacancyController {
 
     private final HhVacancyService hhVacancyService;
     private final UserPreferencesService userPreferencesService;
+    private final VacancyGroupingService vacancyGroupingService;
 
-    public VacancyController(HhVacancyService hhVacancyService, UserPreferencesService userPreferencesService) {
+    public VacancyController(HhVacancyService hhVacancyService,
+                             UserPreferencesService userPreferencesService,
+                             VacancyGroupingService vacancyGroupingService) {
         this.hhVacancyService = hhVacancyService;
         this.userPreferencesService = userPreferencesService;
+        this.vacancyGroupingService = vacancyGroupingService;
     }
 
     @PostMapping("/api/vacancies/search")
@@ -40,8 +44,7 @@ public class VacancyController {
         var filter = new VacancyFilter(city, request.schedules(), request.text(), request.period());
         List<VacancyDto> rawList = hhVacancyService.fetchFromHh(accessToken, filter);
 
-        var groupingService = new VacancyGroupingService();
-        VacancySearchResponse response = groupingService.groupByCityAndSchedule(rawList, city);
+        var response = vacancyGroupingService.groupByCityAndSchedule(rawList, city);
 
         return ResponseEntity.ok(response);
     }

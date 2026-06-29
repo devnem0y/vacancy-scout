@@ -1,10 +1,7 @@
 package com.devnem0y.vacancy_scout.ui;
 
 import com.devnem0y.vacancy_scout.users.UserPreferencesService;
-import com.devnem0y.vacancy_scout.vacancies.Schedule;
-import com.devnem0y.vacancy_scout.vacancies.VacancyDto;
-import com.devnem0y.vacancy_scout.vacancies.VacancySearchRequest;
-import com.devnem0y.vacancy_scout.vacancies.VacancySearchResponse;
+import com.devnem0y.vacancy_scout.vacancies.*;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
@@ -15,12 +12,7 @@ import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.Route;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
-import tools.jackson.databind.ObjectMapper;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -28,6 +20,8 @@ import java.util.concurrent.CompletableFuture;
 public class DashboardScreen extends VerticalLayout {
 
     private final UserPreferencesService userPreferencesService;
+    private final HhVacancyService hhVacancyService;
+    private final VacancyGroupingService groupingService;
 
     private TextField cityField;
     private TextField keywordsField;
@@ -37,8 +31,11 @@ public class DashboardScreen extends VerticalLayout {
     private Grid<VacancyDto> remoteMyCityTable;
     private Grid<VacancyDto> remoteOtherCityTable;
 
-    public DashboardScreen(UserPreferencesService userPreferencesService) {
+    public DashboardScreen(UserPreferencesService userPreferencesService,
+                           HhVacancyService hhVacancyService, VacancyGroupingService groupingService) {
         this.userPreferencesService = userPreferencesService;
+        this.hhVacancyService = hhVacancyService;
+        this.groupingService = groupingService;
 
         setSizeFull();
         setPadding(true);
@@ -99,7 +96,7 @@ public class DashboardScreen extends VerticalLayout {
     }
 
     private void performSearch() {
-        VacancySearchRequest request = new VacancySearchRequest(
+        var request = new VacancySearchRequest(
                 cityField.getValue(),
                 List.of(Schedule.OFFICE, Schedule.REMOTE),
                 keywordsField.getValue(),
@@ -108,33 +105,43 @@ public class DashboardScreen extends VerticalLayout {
 
         CompletableFuture.runAsync(() -> {
             try {
-                var mapper = new ObjectMapper();
-                String json = mapper.writeValueAsString(request);
-
-                HttpRequest req = HttpRequest.newBuilder()
-                        .uri(URI.create("/api/vacancies/search"))
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(json))
-                        .build();
-
-                HttpResponse<String> res = HttpClient.newHttpClient().send(req, HttpResponse.BodyHandlers.ofString());
-
-                if (res.statusCode() != 200) {
-                    Notification.show("Ошибка поиска: " + res.statusCode());
+                var attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+                if (attrs == null) return;
+                var session = attrs.getRequest().getSession(false);
+                if (session == null) {
+                    UI.getCurrent().access(() -> Notification.show("Сессия истекла"));
+                    return;
+                }
+                String accessToken = (String) session.getAttribute("hh_access_token");
+                if (accessToken == null || accessToken.isBlank()) {
+                    UI.getCurrent().access(() -> Notification.show("Требуется повторная авторизация"));
                     return;
                 }
 
-                VacancySearchResponse resp = mapper.readValue(res.body(), VacancySearchResponse.class);
+                List<VacancyDto> rawList = hhVacancyService.fetchFromHh(
+                        accessToken,
+                        new VacancyFilter(request.city(), request.schedules(), request.text(), request.period())
+                );
+
+                String preferredCity = request.city() != null ? request.city() : "";
+                VacancySearchResponse resp = groupingService.groupByCityAndSchedule(rawList, preferredCity);
 
                 UI.getCurrent().access(() -> {
                     officeTable.setItems(resp.myCityOffice());
                     remoteMyCityTable.setItems(resp.myCityRemote());
                     remoteOtherCityTable.setItems(resp.otherCitiesRemote());
+
+                    long total = resp.myCityOffice().size() + resp.myCityRemote().size() + resp.otherCitiesRemote().size();
+                    if (total == 0) {
+                        Notification.show("По запросу ничего не найдено");
+                    }
                 });
 
             } catch (Exception e) {
                 e.printStackTrace();
-                UI.getCurrent().access(() -> Notification.show("Ошибка: " + e.getMessage()));
+                UI.getCurrent().access(() ->
+                        Notification.show("Ошибка поиска: " + e.getMessage())
+                );
             }
         });
     }
