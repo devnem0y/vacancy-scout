@@ -61,7 +61,7 @@ public class HhVacancyService {
 
     private String resolveAreaId(String areaName) {
         if (areaName == null || areaName.isBlank()) {
-            //log.warn("Город не передан или пустой");
+            log.warn("Город не передан или пустой");
             return null;
         }
 
@@ -77,7 +77,7 @@ public class HhVacancyService {
             log.info("Ответ от HH (кол-во городов): {}", areasArray == null ? 0 : areasArray.length);
 
             if (areasArray == null || areasArray.length == 0) {
-                //log.error("Город не найден!");
+                log.error("Город не найден!");
                 return null;
             }
 
