@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @Service
 public class HhVacancyService {
 
-    private static final Logger log = LoggerFactory.getLogger(HhVacancyService.class);
+    //private static final Logger log = LoggerFactory.getLogger(HhVacancyService.class);
 
     private final RestTemplate restTemplate;
 
@@ -61,11 +61,11 @@ public class HhVacancyService {
 
     private String resolveAreaId(String areaName) {
         if (areaName == null || areaName.isBlank()) {
-            log.warn("Город не передан или пустой");
+            //log.warn("Город не передан или пустой");
             return null;
         }
 
-        log.info("Ищем город: {}", areaName);
+        //log.info("Ищем город: {}", areaName);
 
         var searchBuilder = UriComponentsBuilder.fromUriString("https://api.hh.ru/areas").queryParam("text", areaName);
 
@@ -74,20 +74,20 @@ public class HhVacancyService {
 
             AreaItem[] areasArray = areasResponse.getBody();
 
-            log.info("Ответ от HH (кол-во городов): {}", areasArray == null ? 0 : areasArray.length);
+            //log.info("Ответ от HH (кол-во городов): {}", areasArray == null ? 0 : areasArray.length);
 
             if (areasArray == null || areasArray.length == 0) {
-                log.error("Город не найден!");
+                //log.error("Город не найден!");
                 return null;
             }
 
             List<AreaItem> areas = Arrays.asList(areasArray);
 
             String id = areas.getFirst().id();
-            log.info("Найден ID города: {} ({})", id, areas.getFirst().name());
+            //log.info("Найден ID города: {} ({})", id, areas.getFirst().name());
             return id;
         } catch (Exception e) {
-            log.error("Ошибка при запросе к HH API (поиск города)", e);
+            //log.error("Ошибка при запросе к HH API (поиск города)", e);
             return null;
         }
     }
