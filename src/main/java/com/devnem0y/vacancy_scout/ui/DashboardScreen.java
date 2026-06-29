@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 @Route("dashboard")
 public class DashboardScreen extends VerticalLayout {
 
-    //private static final Logger log = LoggerFactory.getLogger(DashboardScreen.class);
+    private static final Logger log = LoggerFactory.getLogger(DashboardScreen.class);
 
     private final UserPreferencesService userPreferencesService;
     private final HhVacancyService hhVacancyService;
@@ -121,7 +121,7 @@ public class DashboardScreen extends VerticalLayout {
                 String accessToken = (String) session.getAttribute("hh_access_token");
                 if (accessToken == null || accessToken.isBlank()) throw new IllegalStateException("Токен HH отсутствует в сессии");
 
-                //log.info("Токен получен, начинаем запрос к HH..."); // Если видишь это в логах - сессия ок
+                log.info("Токен получен, начинаем запрос к HH..."); // Если видишь это в логах - сессия ок
 
                 // --- БЛОК 2: Запрос к сервису ---
                 String cityToSearch = request.city() != null ? request.city().trim() : "";
@@ -131,12 +131,12 @@ public class DashboardScreen extends VerticalLayout {
                         new VacancyFilter(cityToSearch, request.schedules(), request.text(), request.period())
                 );
 
-                //log.info("Получено сырых вакансий от HH: {}", rawList.size());
+                log.info("Получено сырых вакансий от HH: {}", rawList.size());
 
                 VacancyGroupingService groupingService = new VacancyGroupingService(); // Можно создать тут, так как у него нет зависимостей
                 VacancySearchResponse resp = groupingService.groupByCityAndSchedule(rawList, cityToSearch);
 
-                //log.info("Группировано: Офис={}, Удал.свой={}, Удал.др={}", resp.myCityOffice().size(), resp.myCityRemote().size(), resp.otherCitiesRemote().size());
+                log.info("Группировано: Офис={}, Удал.свой={}, Удал.др={}", resp.myCityOffice().size(), resp.myCityRemote().size(), resp.otherCitiesRemote().size());
 
                 // --- БЛОК 3: Обновление UI ---
                 UI.getCurrent().access(() -> {
@@ -153,7 +153,7 @@ public class DashboardScreen extends VerticalLayout {
                 });
 
             } catch (Exception e) {
-                //log.error("Критическая ошибка в performSearch", e);
+                log.error("Критическая ошибка в performSearch", e);
                 UI.getCurrent().access(() -> Notification.show("Ошибка поиска: " + e.getMessage()));
             }
         });
