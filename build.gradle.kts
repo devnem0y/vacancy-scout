@@ -21,6 +21,8 @@ repositories {
 extra["vaadinVersion"] = "25.2.0"
 
 dependencies {
+	implementation("org.slf4j:slf4j-api:1.7.30")
+	implementation("ch.qos.logback:logback-classic:1.2.11")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
 	implementation("org.springframework.boot:spring-boot-starter-validation")

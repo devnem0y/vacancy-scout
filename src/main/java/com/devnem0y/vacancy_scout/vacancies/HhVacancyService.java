@@ -1,5 +1,6 @@
 package com.devnem0y.vacancy_scout.vacancies;
 
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -7,12 +8,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import org.slf4j.Logger;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class HhVacancyService {
+
+    private static final Logger log = LoggerFactory.getLogger(HhVacancyService.class);
 
     private final RestTemplate restTemplate;
 
@@ -56,27 +60,36 @@ public class HhVacancyService {
     }
 
     private String resolveAreaId(String areaName) {
-        if (areaName == null || areaName.isBlank()) return null;
-
-        System.out.println("Ищем город: " + areaName);
-
-        var searchBuilder = UriComponentsBuilder.fromUriString("https://api.hh.ru/areas").queryParam("text", areaName);
-        var areasResponse = restTemplate.getForEntity(searchBuilder.build().toUri(), AreaItem[].class);
-
-        AreaItem[] areasArray = areasResponse.getBody();
-
-        System.out.println("Ответ от HH (кол-во городов): " + (areasArray == null ? 0 : areasArray.length));
-
-        if (areasArray == null || areasArray.length == 0) {
-            System.out.println("Город не найден!");
+        if (areaName == null || areaName.isBlank()) {
+            log.warn("Город не передан или пустой");
             return null;
         }
 
-        List<AreaItem> areas = Arrays.asList(areasArray);
+        log.info("Ищем город: {}", areaName);
 
-        String id = areas.getFirst().id();
-        System.out.println("Найден ID города: " + id + " (" + areas.getFirst().name() + ")");
-        return id;
+        var searchBuilder = UriComponentsBuilder.fromUriString("https://api.hh.ru/areas").queryParam("text", areaName);
+
+        try {
+            var areasResponse = restTemplate.getForEntity(searchBuilder.build().toUri(), AreaItem[].class);
+
+            AreaItem[] areasArray = areasResponse.getBody();
+
+            log.info("Ответ от HH (кол-во городов): {}", areasArray == null ? 0 : areasArray.length);
+
+            if (areasArray == null || areasArray.length == 0) {
+                log.error("Город не найден!");
+                return null;
+            }
+
+            List<AreaItem> areas = Arrays.asList(areasArray);
+
+            String id = areas.getFirst().id();
+            log.info("Найден ID города: {} ({})", id, areas.getFirst().name());
+            return id;
+        } catch (Exception e) {
+            log.error("Ошибка при запросе к HH API (поиск города)", e);
+            return null;
+        }
     }
 
     private List<String> mapSchedules(List<Schedule> schedules) {
