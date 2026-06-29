@@ -29,4 +29,12 @@ public class UserPreferences {
         this.city = city;
         this.keywords = keywords;
     }
+
+    public String getCity() {
+        return city;
+    }
+
+    public String getKeywords() {
+        return keywords;
+    }
 }

@@ -28,9 +28,10 @@ public class AuthScreen extends VerticalLayout {
             String codeVerifier = oauthService.generateCodeVerifier();
             String codeChallenge = oauthService.generateCodeChallenge(codeVerifier);
 
-            // ВАЖНО: достаём настоящую HttpSession и кладём туда
+            // Достаём настоящую HttpSession и кладём туда code_verifier
             var attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes == null) return; // защита на всякий случай
+            if (attributes == null) return;
+
             HttpSession httpSession = attributes.getRequest().getSession();
             httpSession.setAttribute("oauth_code_verifier_" + state, codeVerifier);
 
